@@ -64,9 +64,9 @@ namespace BBDown.Core.Fetcher
                 var interactionNode = JsonDocument.Parse(playerSoText).RootElement.GetProperty("data").GetProperty("interaction");
 
 //                if (interactionNode is { InnerText.Length: > 0 })
-                if (interactionNode.TryGetProperty("graph_version"))
+                if (interactionNode.TryGetProperty("graph_version", out JsonElement graphVersionElement))
                 {
-                    var graphVersion = interactionNode.GetProperty("graph_version").GetInt64();
+                    var graphVersion = graphVersionElement.GetInt64();
                     var edgeInfoApi = $"https://api.bilibili.com/x/stein/edgeinfo_v2?graph_version={graphVersion}&bvid={bvid}";
                     var edgeInfoJson = await GetWebSourceAsync(edgeInfoApi);
                     var edgeInfoData = JsonDocument.Parse(edgeInfoJson).RootElement.GetProperty("data");

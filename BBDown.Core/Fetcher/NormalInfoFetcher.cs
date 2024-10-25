@@ -52,12 +52,17 @@ namespace BBDown.Core.Fetcher
 
             if (isSteinGate == 1) // 互动视频获取分P信息
             {
-                var playerSoApi = $"https://api.bilibili.com/x/player.so?bvid={bvid}&id=cid:{cid}";
+//                var playerSoApi = $"https://api.bilibili.com/x/player.so?bvid={bvid}&id=cid:{cid}";
+//                var playerSoText = await GetWebSourceAsync(playerSoApi);
+//                var playerSoXml = new XmlDocument();
+//                playerSoXml.LoadXml($"<root>{playerSoText}</root>");
+//
+//                var interactionNode = playerSoXml.SelectSingleNode("//interaction");
+                // 使用player/wbi/v2接口
+                var playerSoApi = $"https://api.bilibili.com/x/player/wbi/v2?aid={id}&cid={cid}";
                 var playerSoText = await GetWebSourceAsync(playerSoApi);
-                var playerSoXml = new XmlDocument();
-                playerSoXml.LoadXml($"<root>{playerSoText}</root>");
-                
-                var interactionNode = playerSoXml.SelectSingleNode("//interaction");
+                var interactionNode = JsonDocument.Parse(playerSoText).RootElement.GetProperty("data").GetProperty("interaction").EnumerateArray()
+                                        .ToList();
 
                 if (interactionNode is { InnerText.Length: > 0 })
                 {

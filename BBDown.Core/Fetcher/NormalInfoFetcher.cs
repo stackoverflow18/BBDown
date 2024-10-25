@@ -67,31 +67,57 @@ namespace BBDown.Core.Fetcher
                 if (interactionNode.TryGetProperty("graph_version", out JsonElement graphVersionElement))
                 {
                     var graphVersion = graphVersionElement.GetInt64();
-                    var edgeInfoApi = $"https://api.bilibili.com/x/stein/edgeinfo_v2?graph_version={graphVersion}&bvid={bvid}";
-                    var edgeInfoJson = await GetWebSourceAsync(edgeInfoApi);
-                    var edgeInfoData = JsonDocument.Parse(edgeInfoJson).RootElement.GetProperty("data");
-                    var questions = edgeInfoData.GetProperty("edges").GetProperty("questions").EnumerateArray()
-                        .ToList();
-                    var index = 2; // 互动视频分P索引从2开始
-                    foreach (var question in questions)
+                    var edgeIds = new List<long> { 0 }; // 模块id 从0开始
+
+                    while (edgeIds.Count > 0)
                     {
-                        var choices = question.GetProperty("choices").EnumerateArray().ToList();
-                        foreach (var page in choices)
+                        var edgeId = edgeIds[0];
+                        edgeIds.RemoveAt(0); // left shift
+
+                        var edgeInfoApi =
+                            $"https://api.bilibili.com/x/stein/edgeinfo_v2?graph_version={graphVersion}&bvid={bvid}&edge_id={edgeId}";
+                        var edgeInfoJson = await GetWebSourceAsync(edgeInfoApi);
+                        var edgeInfoData = JsonDocument.Parse(edgeInfoJson).RootElement.GetProperty("data");
+
+                        // 判断是否为结束模块
+                        var isLeaf = edgeInfoData.GetProperty("is_leaf").GetInt16(); // 0：当前模块为普通模块 1：当前模块为结束模块
+
+                        // 解析分P信息
+                        var edges = edgeInfoData.GetProperty("edges");
+                        if (!edges.TryGetProperty("questions", out _))
                         {
-                            Page p = new(index++,
-                                id,
-                                page.GetProperty("cid").ToString(),
-                                "", //epid
-                                page.GetProperty("option").ToString().Trim(),
-                                0,
-                                "",
-                                pubTime, //分p视频没有发布时间
-                                "",
-                                "",
-                                ownerName,
-                                ownerMid
-                            );
-                            pagesInfo.Add(p);
+                            continue;
+                        }
+
+                        var questions = edges.GetProperty("questions").EnumerateArray().ToList();
+                        var index = 2; // 互动视频分P索引从2开始
+                        foreach (var question in questions)
+                        {
+                            var choices = question.GetProperty("choices").EnumerateArray().ToList();
+                            foreach (var page in choices)
+                            {
+                                var option = page.GetProperty("option").ToString().Trim();
+                                var cid0 = page.GetProperty("cid").GetInt64();
+                                Page p = new(index++,
+                                    id,
+                                    page.GetProperty("cid").ToString(),
+                                    "", //epid
+                                    $"{option}-{cid0}",
+                                    0,
+                                    "",
+                                    pubTime, //分p视频没有发布时间
+                                    "",
+                                    "",
+                                    ownerName,
+                                    ownerMid
+                                );
+                                pagesInfo.Add(p);
+
+                                if (isLeaf == 0)
+                                {
+                                    edgeIds.Add(page.GetProperty("id").GetInt64());
+                                }
+                            }
                         }
                     }
                 }
